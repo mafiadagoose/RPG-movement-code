@@ -1,0 +1,121 @@
+public class PlayerMovement : MonoBehaviour
+{
+    [Header("Movement Settings")]
+    public float walkSpeed = 5f;
+    public float sprintSpeed = 9f;
+    public float crouchSpeed = 2f;
+    public float slideSpeed = 12f;
+    public float jumpForce = 6f;
+
+    [Header("Crouch & Slide Settings")]
+    public float crouchHeight = 0.5f;
+    public float normalHeight = 2f;
+    public float slideTime = 0.5f;
+
+    [Header("Ground Check")]
+    public Transform groundCheck;
+    public float groundDistance = 0.4f;
+    public LayerMask groundMask;
+
+    private Rigidbody rb;
+    private CapsuleCollider col;
+    private Vector3 moveInput;
+    private bool isGrounded;
+    private bool isCrouching = false;
+    private bool isSliding = false;
+    private float slideTimer;
+
+    void Start()
+    {
+        rb = GetComponent<Rigidbody>();
+        col = GetComponent<CapsuleCollider>();
+    }
+
+    void Update()
+    {
+        // Ground Check
+        isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
+
+        // Movement Input
+        float moveX = Input.GetAxisRaw("Horizontal");
+        float moveZ = Input.GetAxisRaw("Vertical");
+        moveInput = (transform.right * moveX + transform.forward * moveZ).normalized;
+
+        // Jump
+        if (Input.GetKeyDown(KeyCode.Space) && isGrounded && !isCrouching)
+        {
+            rb.velocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
+            rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+        }
+
+        // Crouch
+        if (Input.GetKeyDown(KeyCode.LeftControl))
+        {
+            Crouch();
+        }
+        else if (Input.GetKeyUp(KeyCode.LeftControl))
+        {
+            StandUp();
+        }
+
+        // Slide
+        if (Input.GetKeyDown(KeyCode.LeftShift) && isGrounded && isCrouching && moveInput.magnitude > 0)
+        {
+            Slide();
+        }
+
+        // Handle slide timer
+        if (isSliding)
+        {
+            slideTimer -= Time.deltaTime;
+            if (slideTimer <= 0f)
+            {
+                isSliding = false;
+            }
+        }
+    }
+
+    void FixedUpdate()
+    {
+        float speed = walkSpeed;
+
+        if (isSliding)
+        {
+            speed = slideSpeed;
+        }
+        else if (isCrouching)
+        {
+            speed = crouchSpeed;
+        }
+        else if (Input.GetKey(KeyCode.LeftShift))
+        {
+            speed = sprintSpeed;
+        }
+
+        Vector3 velocity = moveInput * speed;
+        Vector3 moveVelocity = new Vector3(velocity.x, rb.velocity.y, velocity.z);
+        rb.velocity = moveVelocity;
+    }
+
+    void Crouch()
+    {
+        col.height = crouchHeight;
+        isCrouching = true;
+    }
+
+    void StandUp()
+    {
+        if (!isSliding)
+        {
+            col.height = normalHeight;
+            isCrouching = false;
+        }
+    }
+
+    void Slide()
+    {
+        isSliding = true;
+        slideTimer = slideTime;
+        rb.AddForce(moveInput * slideSpeed * 5f, ForceMode.Impulse);
+    }
+}
